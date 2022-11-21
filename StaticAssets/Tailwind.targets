@@ -1,0 +1,56 @@
+<Project>
+    <ItemGroup>
+        <AvailableItemName Include="Tailwind" />
+    </ItemGroup>
+    
+    <ItemGroup>
+        <Content Update="StaticAssets/*" CopyToPublishDirectory="Never" />
+    </ItemGroup>
+
+    <Target Name="CheckIfNodeJSIsInstalled">
+        <PropertyGroup>
+            <NodeTestCommand Condition="$(OS) == Windows_NT">node -v &gt; NUL</NodeTestCommand>
+            <NodeTestCommand Condition="$(OS) != Windows_NT">node -v &gt; /dev/null</NodeTestCommand>
+        </PropertyGroup>
+
+        <Exec Command="$(NodeTestCommand)" IgnoreExitCode="true" EchoOff="true">
+            <Output TaskParameter="ExitCode" PropertyName="ExitCode" />
+        </Exec>
+
+        <Error Text="Node.js is required to build and run this project. To continue, please install Node.js from https://nodejs.org/, and then restart your command prompt or IDE." Condition="$(ExitCode) != 0" />
+    </Target>
+
+    <Target Name="ProcessScopedCssFiles" AfterTargets="_GenerateScopedCssFiles">
+        <MSBuild Projects="$(MSBuildProjectFile)"
+                 Properties="CurrentScopedCssFile=%(_ScopedCssOutputs.Identity)"
+                 Targets="PostScopedCssCompile">
+        </MSBuild>
+    </Target>
+
+    <Target Name="PostScopedCssCompile" AfterTargets="ProcessScopedCssFiles" DependsOnTargets="CheckIfNodeJSIsInstalled" Condition="$(CurrentScopedCssFile) != ''">
+        <Message Importance="high" Text="Building scoped css..." />
+
+        <Exec Command="npx tailwindcss -i $(CurrentScopedCssFile) -o $(CurrentScopedCssFile) -c ./tailwind.config.js"
+              IgnoreExitCode="true"
+              EchoOff="true"
+              WorkingDirectory="$(MSBuildThisFileDirectory)">
+            <Output TaskParameter="ExitCode" PropertyName="ExitCode" />
+        </Exec>
+
+        <Error Text="Error via build scoped css" Condition="$(ExitCode) != 0" />
+    </Target>
+
+    <Target Name="BuildCss" BeforeTargets="CoreBuild" DependsOnTargets="CheckIfNodeJSIsInstalled">
+        <Message Text="Starting tailwindcss. This may take a while..." />
+
+        <Exec Command="npx tailwindcss -i styles.css -o $(MSBuildProjectDirectory)/wwwroot/css/styles.css -c ./tailwind.config.js"
+              IgnoreExitCode="true"
+              EchoOff="true"
+              WorkingDirectory="$(MSBuildThisFileDirectory)"
+              EnvironmentVariables="NODE_ENV=production">
+            <Output TaskParameter="ExitCode" PropertyName="ExitCode" />
+        </Exec>
+
+        <Error Text="Error via build css" Condition="$(ExitCode) != 0" />
+    </Target>
+</Project>
